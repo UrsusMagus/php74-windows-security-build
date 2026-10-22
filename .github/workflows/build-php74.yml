@@ -1,0 +1,51 @@
+
+name: Build Patched PHP 7.4 Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout official patched PHP 7.4 source
+        uses: actions/checkout@v4
+        with:
+          repository: php/php-src
+          ref: PHP-7.4-CVE-2026-109618-109619
+          path: php-src
+          persist-credentials: false
+
+      - name: Record source revision
+        shell: pwsh
+        working-directory: php-src
+        run: |
+          git log -1 --format="%H %s"
+
+      - name: Install PHP Windows build tools
+        shell: pwsh
+        run: |
+          Install-Module -Name BuildPhp `
+            -Repository PSGallery `
+            -Scope CurrentUser `
+            -Force
+          Import-Module BuildPhp
+
+      - name: Build PHP 7.4 x64 NTS
+        shell: pwsh
+        working-directory: php-src
+        run: |
+          Import-Module BuildPhp
+          Invoke-PhpBuild -Arch x64 -Ts nts
+
+      - name: Upload compiled binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: php74-patched-windows-x64-nts
+          path: php-src/artifacts/
+          if-no-files-found: error
